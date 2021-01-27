@@ -100,7 +100,78 @@ func main() {
 		return c.JSON(http.StatusOK, product)
 	})
 
-	// End point GET: /query
+	// End point PUT : /products/:id
+	e.PUT("/products/:id", func(c echo.Context) error {
+
+		var product map[int]string
+
+		pID, err := strconv.Atoi(c.Param("id"))
+		if err != nil {
+			return err
+		}
+
+		for _, p := range products {
+			for k := range p {
+				if k == pID {
+					product = p
+				}
+			}
+		}
+		if product == nil {
+			return c.JSON(http.StatusNotFound, "Product not found")
+		}
+
+		type body struct {
+			Name string `json:"product_name" validate:"required,min=4"`
+		}
+		reqBody := body{}
+		if err := c.Bind(&reqBody); err != nil {
+			return err
+		}
+
+		e.Validator = &ProductValidator{validator: v}
+		if err := c.Validate(reqBody); err != nil {
+			return err
+		}
+
+		product[pID] = reqBody.Name
+		return c.JSON(http.StatusOK, product)
+	})
+
+	// End point DELETE : /products/:id
+	e.DELETE("/products/:id", func(c echo.Context) error {
+
+		var product map[int]string
+		var index int
+
+		pID, err := strconv.Atoi(c.Param("id"))
+		if err != nil {
+			return err
+		}
+
+		for i, p := range products {
+			for k := range p {
+				if k == pID {
+					product = p
+					index = i
+				}
+			}
+		}
+		if product == nil {
+			return c.JSON(http.StatusNotFound, "Product not found")
+		}
+
+		splice := func(m []map[int]string, index int) []map[int]string {
+			return append(m[:index], m[index+1:]...)
+		}
+
+		products = splice(products, index)
+
+		return c.JSON(http.StatusOK, product)
+
+	})
+
+	// End point GET : /query
 	e.GET("/query", func(c echo.Context) error {
 		return c.JSON(http.StatusOK, c.QueryParam("q"))
 	})
