@@ -2,33 +2,41 @@ package product_api
 
 import (
 	"fmt"
-	"net/http"
-	"os"
+
+	"github.com/ilyakaznacheev/cleanenv"
 
 	"github.com/labstack/echo"
 	"gopkg.in/go-playground/validator.v9"
 )
 
 var (
-	port string
-	e    *echo.Echo
-	v    *validator.Validate
+	e *echo.Echo
+	v *validator.Validate
 )
 
-func Start() {
-
-	port = os.Getenv("APP_PORT")
-	if port == "" {
-		port = "9090"
-	}
+func init() {
 
 	e = echo.New()
 	v = validator.New()
 
-	// Endpoint GET : /
-	e.GET("/", func(c echo.Context) error {
-		return c.String(http.StatusOK, "Hi Primz... ")
-	})
+	if err := cleanenv.ReadEnv(&cfg); err != nil {
+		e.Logger.Fatal("Unable to read configuration")
+	}
+	e.Logger.Printf("%+v\n", cfg)
+}
+
+// Middleware
+func MiddlewareMessage(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		e.Logger.Print("Message middleware triggered")
+		return next(c)
+	}
+}
+
+func Start() {
+
+	// Initialize Middleware
+	e.Use(MiddlewareMessage)
 
 	// Endpoint GET : /products/:id
 	e.GET("/products/:id", GetProductByID)
@@ -45,11 +53,6 @@ func Start() {
 	// End point DELETE : /products/:id
 	e.DELETE("/products/:id", DeleteProductByID)
 
-	// End point GET : /query
-	e.GET("/query", func(c echo.Context) error {
-		return c.JSON(http.StatusOK, c.QueryParam("q"))
-	})
-
-	e.Logger.Printf("Listening on port %s", port)
-	e.Logger.Fatal(e.Start(fmt.Sprintf("localhost:%s", port)))
+	e.Logger.Printf("Listening on port %s", cfg.Port)
+	e.Logger.Fatal(e.Start(fmt.Sprintf("%s:%s", cfg.Host, cfg.Port)))
 }
